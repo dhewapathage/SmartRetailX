@@ -2,6 +2,9 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
+const {
+    startReleaseConsumer
+} = require("./messaging/releaseConsumer");
 
 const inventoryRoutes =
     require("./routes/inventoryRoutes");
@@ -49,6 +52,7 @@ const startServer = async () => {
             await connectRabbitMQ();
 
         await startOrderConsumer(channel);
+        await startReleaseConsumer(channel);
 
         app.listen(PORT, () => {
             console.log(

@@ -3,6 +3,10 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 
+const {
+    startFailureConsumers
+} = require("./messaging/failureConsumer");
+
 const orderRoutes = require("./routes/orderRoutes");
 const {
     startPaymentConsumer
@@ -46,6 +50,7 @@ const startServer = async () => {
 await startPaymentConsumer(
     channel
 );
+await startFailureConsumers(channel);
 
         app.listen(PORT, () => {
             console.log(

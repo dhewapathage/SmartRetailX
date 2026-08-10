@@ -4,6 +4,12 @@ const cors = require("cors");
 
 require("dotenv").config();
 
+const {
+    startCancellationConsumer
+} = require(
+    "./messaging/cancellationConsumer"
+);
+
 
 const notificationRoutes =
     require("./routes/notificationRoutes");
@@ -73,6 +79,7 @@ const startServer = async () => {
         await startOrderConsumer(
             channel
         );
+        await startCancellationConsumer(channel);
 
 
         app.listen(

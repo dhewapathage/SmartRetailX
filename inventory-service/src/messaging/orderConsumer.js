@@ -103,24 +103,17 @@ const startOrderConsumer = async (channel) => {
 
 
                 await publishEvent(
-                    "inventory.reserved",
-                    {
-                        orderId:
-                            event.orderId,
-
-                        userId:
-                            event.userId,
-
-                        productId:
-                            event.productId,
-
-                        quantity:
-                            event.quantity,
-
-                        totalAmount:
-                            event.totalAmount
-                    }
-                );
+    "inventory.reserved",
+    {
+        orderId: event.orderId,
+        userId: event.userId,
+        productId: event.productId,
+        quantity: event.quantity,
+        totalAmount: event.totalAmount,
+        simulatePaymentFailure:
+            event.simulatePaymentFailure
+    }
+);
 
 
                 channel.ack(msg);

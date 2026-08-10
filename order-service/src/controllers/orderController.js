@@ -5,12 +5,18 @@ const {
     publishOrderCreated
 } = require("../messaging/rabbitmq");
 
+
 const createOrder = async (req, res) => {
     try {
 
-        const { productId, quantity } = req.body;
+        const {
+            productId,
+            quantity,
+            simulatePaymentFailure = false
+        } = req.body;
 
         const userId = req.user.userId;
+
 
         if (!productId || !quantity || quantity < 1) {
             return res.status(400).json({
@@ -18,7 +24,8 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Get product details from Product Service
+
+        // Get trusted product information from Product Service
         const productResponse = await axios.get(
             `${process.env.PRODUCT_SERVICE_URL}/api/v1/products/${productId}`,
             {
@@ -28,7 +35,9 @@ const createOrder = async (req, res) => {
             }
         );
 
+
         const product = productResponse.data;
+
 
         if (!product.active) {
             return res.status(400).json({
@@ -36,42 +45,63 @@ const createOrder = async (req, res) => {
             });
         }
 
-        if (product.stock < quantity) {
-            return res.status(400).json({
-                message: "Insufficient stock"
-            });
-        }
 
-        const totalAmount = product.price * quantity;
+        // Calculate total using Product Service price
+        const totalAmount =
+            product.price * quantity;
 
-        // Create order in Order database
+
+        // Save order
         const order = await Order.create({
             userId,
+
             items: [
                 {
-                    productId: product._id,
-                    productName: product.name,
+                    productId:
+                        product._id,
+
+                    productName:
+                        product.name,
+
                     quantity,
-                    unitPrice: product.price
+
+                    unitPrice:
+                        product.price
                 }
             ],
+
             totalAmount,
+
             status: "PENDING"
         });
 
-        // Publish event to RabbitMQ
+
+        // Publish order.created event
         await publishOrderCreated({
-    orderId: order._id.toString(),
-    userId: userId.toString(),
-    productId: product._id.toString(),
-    quantity,
-    totalAmount
-});
+            orderId:
+                order._id.toString(),
+
+            userId:
+                userId.toString(),
+
+            productId:
+                product._id.toString(),
+
+            quantity,
+
+            totalAmount,
+
+            simulatePaymentFailure
+        });
+
 
         res.status(201).json({
-            message: "Order created successfully",
+            message:
+                "Order created successfully",
+
             order
         });
+
 
     } catch (error) {
 
@@ -81,52 +111,79 @@ const createOrder = async (req, res) => {
             });
         }
 
+
         res.status(500).json({
-            message: "Failed to create order",
-            error: error.message
+            message:
+                "Failed to create order",
+
+            error:
+                error.message
         });
     }
 };
+
 
 
 const getOrders = async (req, res) => {
+
     try {
 
-        const orders = await Order.find();
+        const orders =
+            await Order.find();
 
-        res.status(200).json(orders);
+        res.status(200).json(
+            orders
+        );
 
     } catch (error) {
 
         res.status(500).json({
-            message: "Failed to retrieve orders",
-            error: error.message
+            message:
+                "Failed to retrieve orders",
+
+            error:
+                error.message
         });
     }
 };
+
 
 
 const getOrderById = async (req, res) => {
+
     try {
 
-        const order = await Order.findById(req.params.id);
+        const order =
+            await Order.findById(
+                req.params.id
+            );
+
 
         if (!order) {
             return res.status(404).json({
-                message: "Order not found"
+                message:
+                    "Order not found"
             });
         }
 
-        res.status(200).json(order);
+
+        res.status(200).json(
+            order
+        );
+
 
     } catch (error) {
 
         res.status(500).json({
-            message: "Failed to retrieve order",
-            error: error.message
+            message:
+                "Failed to retrieve order",
+
+            error:
+                error.message
         });
     }
 };
+
 
 
 module.exports = {
