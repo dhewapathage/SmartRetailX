@@ -10,7 +10,11 @@ const {
     "./messaging/cancellationConsumer"
 );
 
+const swaggerUi =
+    require("swagger-ui-express");
 
+const swaggerSpec =
+    require("./config/swagger");
 const notificationRoutes =
     require("./routes/notificationRoutes");
 
@@ -30,6 +34,11 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec)
+);
 
 
 app.use(

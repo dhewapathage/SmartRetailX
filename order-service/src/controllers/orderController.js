@@ -46,7 +46,7 @@ const createOrder = async (req, res) => {
         }
 
 
-        // Calculate total using Product Service price
+        // Calculate total using trusted product price
         const totalAmount =
             product.price * quantity;
 
@@ -125,15 +125,24 @@ const createOrder = async (req, res) => {
 
 
 const getOrders = async (req, res) => {
-
     try {
 
+        const userId =
+            req.user.userId;
+
+
         const orders =
-            await Order.find();
+            await Order.find({
+                userId: userId
+            }).sort({
+                createdAt: -1
+            });
+
 
         res.status(200).json(
             orders
         );
+
 
     } catch (error) {
 
@@ -150,13 +159,17 @@ const getOrders = async (req, res) => {
 
 
 const getOrderById = async (req, res) => {
-
     try {
 
+        const userId =
+            req.user.userId;
+
+
         const order =
-            await Order.findById(
-                req.params.id
-            );
+            await Order.findOne({
+                _id: req.params.id,
+                userId: userId
+            });
 
 
         if (!order) {

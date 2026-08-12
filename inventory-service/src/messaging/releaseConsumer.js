@@ -28,6 +28,7 @@ const startReleaseConsumer =
 
                 if (!msg) return;
 
+
                 try {
 
                     const event =
@@ -51,35 +52,65 @@ const startReleaseConsumer =
 
                     if (!inventory) {
 
+                        console.log(
+                            "Inventory not found"
+                        );
+
+                        channel.ack(msg);
+                        return;
+                    }
+
+
+                    const reservation =
+                        inventory.reservations.find(
+                            item =>
+                                item.orderId ===
+                                event.orderId
+                        );
+
+
+                    // Already released / duplicate release
+                    if (!reservation) {
+
+                        console.log(
+                            `No reservation found for order ${event.orderId}. Release ignored.`
+                        );
+
                         channel.ack(msg);
                         return;
                     }
 
 
                     const releaseQuantity =
-                        Math.min(
-                            event.quantity,
-                            inventory.quantityReserved
-                        );
-
-
-                    inventory.quantityReserved -=
-                        releaseQuantity;
+                        reservation.quantity;
 
 
                     inventory.quantityAvailable +=
                         releaseQuantity;
 
 
+                    inventory.quantityReserved -=
+                        releaseQuantity;
+
+
+                    inventory.reservations =
+                        inventory.reservations.filter(
+                            item =>
+                                item.orderId !==
+                                event.orderId
+                        );
+
+
                     await inventory.save();
 
 
                     console.log(
-                        `Released ${releaseQuantity} units back to inventory`
+                        `Released ${releaseQuantity} units for order ${event.orderId}`
                     );
 
 
                     channel.ack(msg);
+
 
                 } catch (error) {
 
@@ -92,7 +123,7 @@ const startReleaseConsumer =
                     channel.nack(
                         msg,
                         false,
-                        false
+                        true
                     );
                 }
             }
