@@ -1,5 +1,6 @@
 const Inventory = require("../models/Inventory");
 
+
 const createInventory = async (req, res) => {
 
     try {
@@ -9,40 +10,68 @@ const createInventory = async (req, res) => {
             quantityAvailable
         } = req.body;
 
+
+        if (
+            !productId ||
+            quantityAvailable === undefined ||
+            Number(quantityAvailable) < 0
+        ) {
+
+            return res.status(400).json({
+                message:
+                    "productId and valid quantityAvailable are required"
+            });
+        }
+
+
         const existing =
             await Inventory.findOne({
                 productId
             });
 
+
         if (existing) {
+
             return res.status(400).json({
                 message:
                     "Inventory already exists for this product"
             });
         }
 
+
         const inventory =
             await Inventory.create({
+
                 productId,
-                quantityAvailable
+
+                quantityAvailable:
+                    Number(quantityAvailable)
             });
 
-        res.status(201).json({
+
+        return res.status(201).json({
+
             message:
                 "Inventory created successfully",
+
             inventory
         });
 
+
     } catch (error) {
 
-        res.status(500).json({
+        return res.status(500).json({
+
             message:
                 "Failed to create inventory",
-            error: error.message
+
+            error:
+                error.message
         });
 
     }
 };
+
 
 
 const getInventory = async (req, res) => {
@@ -52,14 +81,21 @@ const getInventory = async (req, res) => {
         const inventory =
             await Inventory.find();
 
-        res.status(200).json(inventory);
+
+        return res.status(200).json(
+            inventory
+        );
+
 
     } catch (error) {
 
-        res.status(500).json({
+        return res.status(500).json({
+
             message:
                 "Failed to retrieve inventory",
-            error: error.message
+
+            error:
+                error.message
         });
 
     }

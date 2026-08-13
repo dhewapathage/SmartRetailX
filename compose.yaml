@@ -1,0 +1,268 @@
+services:
+
+  mongo:
+    image: mongo:7
+    container_name: smartretailx-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27018:27017"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: smartretailx-rabbitmq
+    hostname: smartretailx-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_ERLANG_COOKIE: smartretailx-rabbitmq-cookie
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  user-service:
+    build:
+      context: ./user-service
+    container_name: smartretailx-user-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      MONGODB_URI: mongodb://mongo:27017/smartretailx
+      JWT_SECRET: smartretailx-development-secret
+      JWT_EXPIRES_IN: "1d"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_started
+
+  product-service:
+    build:
+      context: ./product-service
+    container_name: smartretailx-product-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      MONGODB_URI: mongodb://mongo:27017/smartretailx_products
+      JWT_SECRET: smartretailx-development-secret
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3002/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_started
+
+  order-service:
+    build:
+      context: ./order-service
+    container_name: smartretailx-order-service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      MONGODB_URI: mongodb://mongo:27017/smartretailx_orders
+      JWT_SECRET: smartretailx-development-secret
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      PRODUCT_SERVICE_URL: http://product-service:3002
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3003/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+
+  inventory-service:
+    build:
+      context: ./inventory-service
+    container_name: smartretailx-inventory-service
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      MONGODB_URI: mongodb://mongo:27017/smartretailx_inventory
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_SECRET: smartretailx-development-secret
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3004/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: ./payment-service
+    container_name: smartretailx-payment-service
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      MONGODB_URI: mongodb://mongo:27017/smartretailx_payments
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3005/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: smartretailx-notification-service
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+    environment:
+      PORT: 3006
+      MONGODB_URI: mongodb://mongo:27017/smartretailx_notifications
+      JWT_SECRET: smartretailx-development-secret
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3006/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: smartretailx-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: 8081
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      ORDER_SERVICE_URL: http://order-service:3003
+      INVENTORY_SERVICE_URL: http://inventory-service:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8081/api/v1/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: smartretailx-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+
+volumes:
+  mongo_data:

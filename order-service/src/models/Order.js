@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const orderItemSchema = new mongoose.Schema(
     {
         productId: {
@@ -29,11 +30,17 @@ const orderItemSchema = new mongoose.Schema(
     }
 );
 
+
 const orderSchema = new mongoose.Schema(
     {
         userId: {
             type: String,
             required: true
+        },
+
+        idempotencyKey: {
+            type: String,
+            trim: true
         },
 
         items: {
@@ -62,4 +69,26 @@ const orderSchema = new mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model("Order", orderSchema);
+
+// Prevent duplicate checkout requests.
+// Partial index allows older orders without an idempotency key.
+orderSchema.index(
+    {
+        userId: 1,
+        idempotencyKey: 1
+    },
+    {
+        unique: true,
+        partialFilterExpression: {
+            idempotencyKey: {
+                $type: "string"
+            }
+        }
+    }
+);
+
+
+module.exports = mongoose.model(
+    "Order",
+    orderSchema
+);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import productApi from "../services/productApi";
 import orderApi from "../services/orderApi";
 import Layout from "../components/Layout";
@@ -14,6 +14,11 @@ function Products() {
 
     const [orderMessage, setOrderMessage] = useState("");
     const [ordering, setOrdering] = useState(false);
+    const [orderPlaced, setOrderPlaced] = useState(false);
+
+    // Prevents very fast duplicate clicks
+    const submittingRef = useRef(false);
+    const idempotencyKeyRef = useRef("");
 
 
     useEffect(() => {
@@ -22,8 +27,7 @@ function Products() {
 
             try {
 
-                const response =
-                    await productApi.get("/products");
+                const response = await productApi.get("/products");
 
                 setProducts(response.data);
 
@@ -50,15 +54,27 @@ function Products() {
         setSelectedProduct(product);
         setQuantity(1);
         setOrderMessage("");
+        setOrderPlaced(false);
+        setOrdering(false);
 
+        submittingRef.current = false;
+        idempotencyKeyRef.current = crypto.randomUUID();
     };
 
 
     const closeOrderModal = () => {
 
-        setSelectedProduct(null);
-        setOrderMessage("");
+        // Do not allow closing while request is being processed
+        if (ordering) {
+            return;
+        }
 
+        setSelectedProduct(null);
+        setQuantity(1);
+        setOrderMessage("");
+        setOrderPlaced(false);
+
+        submittingRef.current = false;
     };
 
 
@@ -68,28 +84,48 @@ function Products() {
             return;
         }
 
+        if (Number(quantity) < 1) {
+            setOrderMessage("Quantity must be at least 1.");
+            return;
+        }
+
+        // Prevent duplicate order submission
+        if (submittingRef.current || orderPlaced) {
+            return;
+        }
+
+        submittingRef.current = true;
+
         try {
 
             setOrdering(true);
             setOrderMessage("");
 
-            const response =
-                await orderApi.post(
-                    "/orders",
-                    {
-                        productId:
-                            selectedProduct._id,
+            const response = await orderApi.post(
+    "/orders",
 
-                        quantity:
-                            Number(quantity)
-                    }
-                );
+    {
+        productId: selectedProduct._id,
+        quantity: Number(quantity)
+    },
+
+    {
+        headers: {
+            "Idempotency-Key":
+                idempotencyKeyRef.current
+        }
+    }
+);
+            setOrderPlaced(true);
 
             setOrderMessage(
                 `Order created successfully. Order ID: ${response.data.order._id}`
             );
 
         } catch (error) {
+
+            // Request failed, therefore allow the user to retry
+            submittingRef.current = false;
 
             setOrderMessage(
                 error.response?.data?.message ||
@@ -133,9 +169,11 @@ function Products() {
 
                 {
                     error && (
+
                         <div className="alert error-alert">
                             {error}
                         </div>
+
                     )
                 }
 
@@ -212,7 +250,9 @@ function Products() {
                                                 <span>
                                                     {
                                                         product.name
-                                                            ? product.name.charAt(0).toUpperCase()
+                                                            ? product.name
+                                                                .charAt(0)
+                                                                .toUpperCase()
                                                             : "P"
                                                     }
                                                 </span>
@@ -247,12 +287,15 @@ function Products() {
                                                     </small>
 
                                                     <div className="product-price">
+
                                                         LKR{" "}
+
                                                         {
                                                             Number(
                                                                 product.price
                                                             ).toLocaleString()
                                                         }
+
                                                     </div>
 
                                                 </div>
@@ -265,11 +308,13 @@ function Products() {
                                                         openOrderModal(product)
                                                     }
                                                 >
+
                                                     {
                                                         product.active
                                                             ? "Order Now"
                                                             : "Unavailable"
                                                     }
+
                                                 </button>
 
                                             </div>
@@ -312,6 +357,7 @@ function Products() {
                                     <button
                                         className="close-button"
                                         onClick={closeOrderModal}
+                                        disabled={ordering}
                                     >
                                         ×
                                     </button>
@@ -328,12 +374,15 @@ function Products() {
                                         </span>
 
                                         <strong>
+
                                             LKR{" "}
+
                                             {
                                                 Number(
                                                     selectedProduct.price
                                                 ).toLocaleString()
                                             }
+
                                         </strong>
 
                                     </div>
@@ -351,6 +400,10 @@ function Products() {
                                     type="number"
                                     min="1"
                                     value={quantity}
+                                    disabled={
+                                        ordering ||
+                                        orderPlaced
+                                    }
                                     onChange={(event) =>
                                         setQuantity(
                                             event.target.value
@@ -366,7 +419,9 @@ function Products() {
                                     </span>
 
                                     <strong>
+
                                         LKR{" "}
+
                                         {
                                             (
                                                 Number(
@@ -375,6 +430,7 @@ function Products() {
                                                 Number(quantity || 0)
                                             ).toLocaleString()
                                         }
+
                                     </strong>
 
                                 </div>
@@ -396,8 +452,15 @@ function Products() {
                                     <button
                                         className="secondary-button"
                                         onClick={closeOrderModal}
+                                        disabled={ordering}
                                     >
-                                        Cancel
+
+                                        {
+                                            orderPlaced
+                                                ? "Close"
+                                                : "Cancel"
+                                        }
+
                                     </button>
 
 
@@ -406,14 +469,19 @@ function Products() {
                                         onClick={placeOrder}
                                         disabled={
                                             ordering ||
+                                            orderPlaced ||
                                             Number(quantity) < 1
                                         }
                                     >
+
                                         {
                                             ordering
                                                 ? "Processing..."
-                                                : "Confirm Order"
+                                                : orderPlaced
+                                                    ? "Order Placed"
+                                                    : "Confirm Order"
                                         }
+
                                     </button>
 
                                 </div>

@@ -7,6 +7,7 @@ const {
 
 
 const createOrder = async (req, res) => {
+
     try {
 
         const {
@@ -17,43 +18,98 @@ const createOrder = async (req, res) => {
 
         const userId = req.user.userId;
 
+        // Unique key sent by the frontend for this checkout attempt
+        const idempotencyKey =
+            req.get("Idempotency-Key");
 
-        if (!productId || !quantity || quantity < 1) {
+
+        if (!productId || !quantity || Number(quantity) < 1) {
+
             return res.status(400).json({
-                message: "productId and valid quantity are required"
+                message:
+                    "productId and valid quantity are required"
             });
+
         }
 
 
-        // Get trusted product information from Product Service
+        if (!idempotencyKey) {
+
+            return res.status(400).json({
+                message:
+                    "Idempotency-Key header is required"
+            });
+
+        }
+
+
+        /*
+         * Check whether this exact request
+         * has already created an order.
+         */
+        const existingOrder = await Order.findOne({
+            userId,
+            idempotencyKey
+        });
+
+
+        if (existingOrder) {
+
+            return res.status(200).json({
+
+                message:
+                    "Order already created for this request",
+
+                duplicatePrevented: true,
+
+                order:
+                    existingOrder
+            });
+
+        }
+
+
+        // Get trusted product data from Product Service
         const productResponse = await axios.get(
+
             `${process.env.PRODUCT_SERVICE_URL}/api/v1/products/${productId}`,
+
             {
                 headers: {
-                    Authorization: req.headers.authorization
+                    Authorization:
+                        req.headers.authorization
                 }
             }
+
         );
 
 
-        const product = productResponse.data;
+        const product =
+            productResponse.data;
 
 
         if (!product.active) {
+
             return res.status(400).json({
-                message: "Product is not available"
+                message:
+                    "Product is not available"
             });
+
         }
 
 
-        // Calculate total using trusted product price
+        // Calculate price using trusted Product Service data
         const totalAmount =
-            product.price * quantity;
+            Number(product.price) *
+            Number(quantity);
 
 
-        // Save order
+        // Create the order
         const order = await Order.create({
+
             userId,
+
+            idempotencyKey,
 
             items: [
                 {
@@ -63,7 +119,8 @@ const createOrder = async (req, res) => {
                     productName:
                         product.name,
 
-                    quantity,
+                    quantity:
+                        Number(quantity),
 
                     unitPrice:
                         product.price
@@ -72,12 +129,14 @@ const createOrder = async (req, res) => {
 
             totalAmount,
 
-            status: "PENDING"
+            status:
+                "PENDING"
         });
 
 
-        // Publish order.created event
+        // Publish event only for the newly-created order
         await publishOrderCreated({
+
             orderId:
                 order._id.toString(),
 
@@ -87,7 +146,8 @@ const createOrder = async (req, res) => {
             productId:
                 product._id.toString(),
 
-            quantity,
+            quantity:
+                Number(quantity),
 
             totalAmount,
 
@@ -95,9 +155,13 @@ const createOrder = async (req, res) => {
         });
 
 
-        res.status(201).json({
+        return res.status(201).json({
+
             message:
                 "Order created successfully",
+
+            duplicatePrevented:
+                false,
 
             order
         });
@@ -105,26 +169,73 @@ const createOrder = async (req, res) => {
 
     } catch (error) {
 
-        if (error.response?.status === 404) {
-            return res.status(404).json({
-                message: "Product not found"
-            });
+        /*
+         * Handles two requests arriving almost
+         * at exactly the same time.
+         *
+         * MongoDB unique index will reject
+         * the second one.
+         */
+        if (error.code === 11000) {
+
+            const idempotencyKey =
+                req.get("Idempotency-Key");
+
+            const existingOrder =
+                await Order.findOne({
+
+                    userId:
+                        req.user.userId,
+
+                    idempotencyKey
+                });
+
+
+            if (existingOrder) {
+
+                return res.status(200).json({
+
+                    message:
+                        "Duplicate order request prevented",
+
+                    duplicatePrevented:
+                        true,
+
+                    order:
+                        existingOrder
+                });
+
+            }
+
         }
 
 
-        res.status(500).json({
+        if (error.response?.status === 404) {
+
+            return res.status(404).json({
+                message:
+                    "Product not found"
+            });
+
+        }
+
+
+        return res.status(500).json({
+
             message:
                 "Failed to create order",
 
             error:
                 error.message
         });
+
     }
 };
 
 
 
 const getOrders = async (req, res) => {
+
     try {
 
         const userId =
@@ -133,32 +244,35 @@ const getOrders = async (req, res) => {
 
         const orders =
             await Order.find({
-                userId: userId
+                userId
             }).sort({
                 createdAt: -1
             });
 
 
-        res.status(200).json(
+        return res.status(200).json(
             orders
         );
 
 
     } catch (error) {
 
-        res.status(500).json({
+        return res.status(500).json({
+
             message:
                 "Failed to retrieve orders",
 
             error:
                 error.message
         });
+
     }
 };
 
 
 
 const getOrderById = async (req, res) => {
+
     try {
 
         const userId =
@@ -167,36 +281,42 @@ const getOrderById = async (req, res) => {
 
         const order =
             await Order.findOne({
-                _id: req.params.id,
-                userId: userId
+
+                _id:
+                    req.params.id,
+
+                userId
             });
 
 
         if (!order) {
+
             return res.status(404).json({
                 message:
                     "Order not found"
             });
+
         }
 
 
-        res.status(200).json(
+        return res.status(200).json(
             order
         );
 
 
     } catch (error) {
 
-        res.status(500).json({
+        return res.status(500).json({
+
             message:
                 "Failed to retrieve order",
 
             error:
                 error.message
         });
+
     }
 };
-
 
 
 module.exports = {

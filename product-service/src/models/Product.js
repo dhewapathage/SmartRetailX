@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const productSchema = new mongoose.Schema(
     {
         name: {
@@ -25,13 +26,6 @@ const productSchema = new mongoose.Schema(
             min: 0
         },
 
-        stock: {
-            type: Number,
-            required: true,
-            min: 0,
-            default: 0
-        },
-
         sku: {
             type: String,
             required: true,
@@ -49,4 +43,8 @@ const productSchema = new mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model("Product", productSchema);
+
+module.exports = mongoose.model(
+    "Product",
+    productSchema
+);
