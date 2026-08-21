@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const { getMongoConnection } = require("./config/database");
 const cors = require("cors");
 require("dotenv").config();
 
@@ -54,7 +55,7 @@ const startServer = async () => {
     try {
 
         await mongoose.connect(
-            process.env.MONGODB_URI
+            ...getMongoConnection("smartretailx_inventory")
         );
 
         console.log(

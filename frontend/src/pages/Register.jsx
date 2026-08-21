@@ -119,6 +119,10 @@ function Register() {
 
             <div className="auth-brand-panel">
 
+                <Link to="/" className="auth-back-link">
+                    ← Back to home
+                </Link>
+
                 <Link
                     to="/"
                     className="auth-brand"
@@ -160,6 +164,10 @@ function Register() {
             <div className="auth-form-panel">
 
                 <div className="auth-form-card">
+
+                    <Link to="/" className="auth-back-mobile">
+                        ← Back to home
+                    </Link>
 
                     <p className="eyebrow">
                         CREATE ACCOUNT

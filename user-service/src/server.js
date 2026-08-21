@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const { getMongoConnection } = require("./config/database");
 const cors = require("cors");
 require("dotenv").config();
 
@@ -36,7 +37,7 @@ app.get("/api/v1/health", (req, res) => {
 const PORT = process.env.PORT || 3001;
 
 mongoose
-    .connect(process.env.MONGODB_URI)
+    .connect(...getMongoConnection("smartretailx"))
     .then(() => {
         console.log("Connected to MongoDB");
 

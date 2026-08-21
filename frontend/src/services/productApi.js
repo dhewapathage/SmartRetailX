@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const productApi = axios.create({
-    baseURL: "http://localhost:8081/api/v1"
+    baseURL: ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "http://localhost:8081/api/v1" : "/api/v1"
 });
 
 productApi.interceptors.request.use((config) => {

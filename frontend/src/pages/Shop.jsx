@@ -15,8 +15,20 @@ function Shop() {
     const [error, setError] =
         useState("");
 
+    const [search, setSearch] = useState("");
+    const [category, setCategory] = useState("All");
+
     const navigate =
         useNavigate();
+
+    const categories = ["All", ...new Set(products.map((product) => product.category).filter(Boolean))];
+    const visibleProducts = products.filter((product) => {
+        const query = search.trim().toLowerCase();
+        const matchesCategory = category === "All" || product.category === category;
+        const matchesSearch = !query || [product.name, product.description, product.sku]
+            .some((value) => String(value || "").toLowerCase().includes(query));
+        return matchesCategory && matchesSearch;
+    });
 
 
     useEffect(() => {
@@ -53,7 +65,7 @@ function Shop() {
     }, []);
 
 
-    const handleOrder = (product) => {
+    const handleOrder = () => {
 
         const token =
             localStorage.getItem("token");
@@ -98,7 +110,7 @@ function Shop() {
                         </strong>
 
                         <span>
-                            Smart Shopping
+                            Everyday shopping
                         </span>
                     </div>
                 </Link>
@@ -119,14 +131,14 @@ function Shop() {
                     </Link>
 
                     <Link to="/login">
-                        Login
+                        Sign in
                     </Link>
 
                     <Link
                         to="/register"
                         className="public-cta"
                     >
-                        Register
+                        Create account
                     </Link>
 
                 </nav>
@@ -136,24 +148,32 @@ function Shop() {
 
             <main className="shop-page">
 
-                <div className="shop-heading">
+                <div className="shop-heading clean-shop-heading">
 
                     <p className="eyebrow">
-                        SMARTRETAILX STORE
+                        THE SMARTRETAILX STORE
                     </p>
 
                     <h1>
-                        Explore our products
+                        Find what you need.
                     </h1>
 
                     <p>
-                        Browse our available products.
-                        Login or create an account when
-                        you're ready to place an order.
+                        A simple catalogue of everyday products, with clear prices and easy ordering.
                     </p>
 
                 </div>
 
+
+                <div className="shop-tools">
+                    <label className="shop-search">
+                        <span aria-hidden="true">⌕</span>
+                        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" aria-label="Search products" />
+                    </label>
+                    <div className="category-filters" aria-label="Filter by category">
+                        {categories.map((item) => <button key={item} type="button" className={item === category ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}
+                    </div>
+                </div>
 
                 {
                     loading && (
@@ -179,7 +199,7 @@ function Shop() {
                         <div className="product-grid">
 
                             {
-                                products.map(
+                                visibleProducts.map(
                                     (product) => (
 
                                         <div
@@ -267,12 +287,12 @@ function Shop() {
                                                     className="primary-button"
                                                     disabled={!product.active}
                                                     onClick={() =>
-                                                        handleOrder(product)
+                                                        handleOrder()
                                                     }
                                                 >
                                                     {
                                                         product.active
-                                                            ? "Order Now"
+                                                            ? "Order now"
                                                             : "Unavailable"
                                                     }
                                                 </button>
@@ -284,6 +304,8 @@ function Shop() {
                                     )
                                 )
                             }
+
+                            {visibleProducts.length === 0 && <div className="empty-state">No products match your search.</div>}
 
                         </div>
 
